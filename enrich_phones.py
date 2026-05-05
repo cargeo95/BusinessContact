@@ -43,23 +43,22 @@ def main() -> None:
 
         try:
             result = crawler.crawl(record.dominio)
+            phones = extractor.extract_from_pages(result.pages, country_hint=record.pais)
+
+            if not phones:
+                print("sin teléfono")
+                continue
+
+            t1 = phones[0]
+            t2 = phones[1] if len(phones) >= 2 else ""
+
+            crm.update_phones_by_domain(record.dominio, t1, t2)
+            found_count += 1
+            display = "  |  ".join(p for p in [t1, t2] if p)
+            print(display)
+
         except Exception as exc:
             print(f"ERROR: {exc}")
-            continue
-
-        phones = extractor.extract_from_pages(result.pages, country_hint=record.pais)
-
-        if not phones:
-            print("sin teléfono")
-            continue
-
-        t1 = phones[0]
-        t2 = phones[1] if len(phones) >= 2 else ""
-
-        crm.update_phones_by_domain(record.dominio, t1, t2)
-        found_count += 1
-        display = "  |  ".join(p for p in [t1, t2] if p)
-        print(display)
 
     print(f"\nResultado: {found_count} de {total} empresas con al menos un teléfono.")
 
