@@ -1,0 +1,23 @@
+[project]
+name = "businesscontact"
+version = "0.1.0"
+description = "Agente secuencial para descubrir websites y correos empresariales desde resultados de LinkedIn."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "dnspython>=2.7.0",
+    "groq>=0.18.0",
+    "openpyxl>=3.1.5",
+    "phonenumbers>=8.13.0",
+    "playwright>=1.52.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+    "pytest>=8.3.5",
+    "ruff>=0.11.8",
+]
+
+[tool.uv]
+package = false

@@ -1,0 +1,40 @@
+# ─── Secretos y configuración local ──────────────────────────────────────────
+# Claves de API (Google Maps, Groq, etc.) — NUNCA subir al repo
+.env
+.env.*
+!.env.example
+
+# ─── Datos sensibles / PII / riesgo legal ─────────────────────────────────────
+# Todo lo que genera el agente: CRM, correos, teléfonos, estado, logs, planes
+data/
+logs/
+
+# ─── Archivos temporales generados por el CRM manager ─────────────────────────
+*.tmp
+*.bak
+*.bak1
+*.bak2
+*.bak3
+
+# ─── Entorno virtual de Python ────────────────────────────────────────────────
+.venv/
+
+# ─── Cache de Python / herramientas ───────────────────────────────────────────
+__pycache__/
+*.py[oc]
+.mypy_cache/
+.ruff_cache/
+
+# ─── Artefactos de build ───────────────────────────────────────────────────────
+build/
+dist/
+wheels/
+*.egg-info/
+
+# ─── Claude Code ──────────────────────────────────────────────────────────────
+.claude/
+
+# ─── Sistema operativo ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
