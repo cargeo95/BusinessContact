@@ -1,153 +1,113 @@
-uv run python recover_crm.py
-
 # CompanyDiscoveryAgent
 
-## Objetivo
-
-Construir un agente secuencial de descubrimiento comercial B2B para encontrar correos empresariales utiles y guardarlos en un CRM vivo.
-
-Flujo objetivo:
+Agente secuencial de descubrimiento comercial B2B. Consulta Google Maps Places API por zona o industria, rastrea sitios web de las empresas encontradas, extrae y valida correos empresariales con MX en tiempo real, y los escribe en un CRM vivo en Excel.
 
 ```text
-Empresa -> Website -> Correos -> CRM
+Google Maps API → Website Crawl → Email Extraction → CRM (Excel)
 ```
 
-## Estado actual
+## Características
 
-La base del proyecto ya esta armada en los modulos principales:
+- Descubrimiento sin navegador vía Google Maps Places API (Text Search)
+- Crawl de páginas internas con `urllib` (sin dependencias de browser)
+- Extracción de correos con regex + validación de registros MX en tiempo real
+- Ranking heurístico por cargo (gerencial > contacto > automatizado) y por dominio propio
+- CRM en Excel con escritura atómica y rotación automática de backups (`.bak1`–`.bak3`)
+- Deduplicación por dominio: doble chequeo contra `state.json` y `crm.xlsx`
+- Avance automático de consulta al terminar cada corrida (`queries_plan.xlsx`)
+- Límite diario configurable de empresas procesadas
 
-```text
-main.py
-  -> bootstrap.py
-  -> agent_runner.py
-  -> pipeline.py
-  -> linkedin/
-  -> website/
-  -> extractor/
-  -> storage/
-  -> finalizer.py
-```
+## Instalación
 
-## Estructura
-
-```text
-app/
-  core/
-    agent_runner.py
-    bootstrap.py
-    browser_manager.py
-    config.py
-    finalizer.py
-    limits.py
-    pipeline.py
-    session_manager.py
-  linkedin/
-    company_parser.py
-    linkedin_agent.py
-  website/
-    link_discovery.py
-    website_crawler.py
-  extractor/
-    email_extractor.py
-    email_ranker.py
-  storage/
-    crm_manager.py
-    state_manager.py
-  utils/
-    domain_utils.py
-    logger.py
-    url_utils.py
-data/
-  raw/
-  processed/
-  exports/
-logs/
-main.py
-pyproject.toml
-.env
-```
-
-## Responsabilidades
-
-`main.py`
-Inicia la aplicacion y delega el arranque a `bootstrap.py`.
-
-`bootstrap.py`
-Carga configuracion, prepara carpetas, construye servicios y devuelve la aplicacion lista para ejecutar.
-
-`agent_runner.py`
-Orquesta una corrida completa del agente.
-
-`pipeline.py`
-Ejecuta el flujo de una empresa: website, crawl, extraccion, ranking, guardado y estado.
-
-`finalizer.py`
-Cierra navegador y deja la ejecucion en estado limpio aunque ocurra un error.
-
-## Archivos vivos
-
-`data/exports/crm.xlsx`
-CRM principal. Se escribe empresa por empresa.
-
-`data/processed/state.json`
-Estado de dominios procesados y conteo diario.
-
-`logs/logs.txt`
-Registro de errores, timeouts, captcha y websites fallidos.
-
-## Variables de entorno
-
-El proyecto lee `.env` con estas claves:
-
-```text
-url_procesar
-pais
-daily_company_goal
-max_internal_pages
-max_ranked_emails
-company_timeout_seconds
-headless_browser
-groq_api_key
-groq_model
-```
-
-Notas:
-
-- `url_procesar` es la busqueda de LinkedIn a procesar.
-- `pais` se escribe en el CRM cuando la empresa no trae un pais especifico.
-- `groq_api_key` ya queda soportada por configuracion.
-- Groq queda listo en entorno, pero el ranking actual sigue siendo heuristico hasta agregar un cliente dedicado.
-
-## Ejecucion
-
-Con `uv`:
+Requiere Python ≥ 3.10 y [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
+pip install uv
 uv sync
+cp .env.example .env   # completar con tus claves
+```
+
+## Configuración
+
+Todas las claves se leen desde `.env` (o variables de entorno). Son insensibles a mayúsculas.
+
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `GOOGLE_MAPS_API_KEY` | `""` | Clave Places API (New) de Google Cloud Console |
+| `MAPS_SEARCH_QUERY` | `"empresas en Bogotá Colombia"` | Consulta de texto; variar por industria o zona en cada corrida |
+| `PAIS` | `"Colombia"` | País de reserva cuando la dirección no lo indica |
+| `DAILY_COMPANY_GOAL` | `100` | Máximo de empresas procesadas por día |
+| `MAX_INTERNAL_PAGES` | `3` | Máximo de páginas internas rastreadas por sitio |
+| `MAX_RANKED_EMAILS` | `3` | Máximo de correos guardados por empresa |
+| `COMPANY_TIMEOUT_SECONDS` | `8` | Timeout HTTP por página |
+| `GROQ_API_KEY` | `""` | Reservado para ranking LLM (futuro) |
+| `GROQ_MODEL` | `""` | Reservado para ranking LLM (futuro) |
+
+## Ejecución
+
+```bash
 uv run python main.py
 ```
 
-Con Python local:
+Al terminar, `main.py` marca la consulta actual como usada en `queries_plan.xlsx`, registra estadísticas en `queries_log.csv` y avanza automáticamente a la siguiente consulta del plan.
 
-```bash
-python main.py
+## Estructura del proyecto
+
+```text
+app/
+  core/           # Bootstrap, orquestación, pipeline y configuración
+  google_maps/    # Integración con Places API (Text Search)
+  website/        # Crawl BFS y descubrimiento de enlaces internos
+  extractor/      # Extracción de correos (regex + MX) y ranking heurístico
+  storage/        # CRM (openpyxl) y estado de corrida (JSON)
+  linkedin/       # Módulos legacy; LinkedInCompany es el contrato de datos compartido
+  utils/          # Logger, normalización de dominios y URLs
+data/
+  exports/        # crm.xlsx — salida principal con backups rotativos
+  processed/      # state.json — deduplicación y conteo diario
+logs/             # logs.txt — errores, timeouts y fallos de sitios
+main.py           # Punto de entrada
+enrich_phones.py  # Utilitario: enriquecer teléfonos en el CRM existente
+recover_crm.py    # Utilitario: restaurar CRM desde el último backup
 ```
 
-## Reglas operativas
+## Archivos de runtime
 
-- Procesamiento secuencial: una empresa a la vez.
-- Meta diaria por defecto: `100`.
-- Maximo por website: `20` paginas internas.
-- Maximo de guardado: `3` correos por empresa.
-- Identificador unico: `dominio`.
-- Si LinkedIn requiere captcha, la corrida se detiene y queda registrada en logs.
+Estos archivos son generados en ejecución y están en `.gitignore`.
+
+| Ruta | Propósito |
+|------|-----------|
+| `data/exports/crm.xlsx` | CRM principal; backups automáticos en `.bak1`–`.bak3` |
+| `data/processed/state.json` | Dominios procesados y conteo diario por fecha |
+| `queries_plan.xlsx` | Plan de consultas con columna `used` |
+| `queries_log.csv` | Estadísticas por corrida (empresas vistas, procesadas, omitidas) |
+| `logs/logs.txt` | Errores, timeouts y fallos de sitios web |
+
+## Utilitarios
+
+```bash
+# Enriquecer teléfonos en el CRM ya existente
+uv run python enrich_phones.py
+
+# Restaurar CRM desde el último backup disponible
+uv run python recover_crm.py
+```
 
 ## Dependencias principales
 
-- `openpyxl` para `crm.xlsx`
-- `playwright` para el navegador persistente
-- `groq` para la futura capa LLM de ranking
+| Paquete | Uso |
+|---------|-----|
+| `openpyxl` | Lectura/escritura del CRM en Excel |
+| `dnspython` | Validación de registros MX en tiempo real |
+| `phonenumbers` | Parseo y normalización de números telefónicos |
+| `playwright` | Automatización de navegador (reservado para integración futura) |
+| `groq` | Cliente LLM para ranking de correos (reservado para integración futura) |
 
-## Siguiente paso natural
+## Comandos de desarrollo
 
-Con esta base ya cerrada, el siguiente trabajo recomendable es conectar `LinkedInAgent` y `BrowserManager` con navegacion real en LinkedIn usando una sesion persistente.
+```bash
+uv run ruff check .       # Lint
+uv run ruff format .      # Formato
+uv run mypy app/          # Verificación de tipos estáticos
+uv run pytest             # Tests
+```
